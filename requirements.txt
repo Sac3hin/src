@@ -1,0 +1,7 @@
+streamlit>=1.38
+python-dotenv>=1.0
+azure-cosmos>=4.6
+azure-storage-blob>=12.21
+openai>=1.55
+pandas>=2.2
+chroma 
