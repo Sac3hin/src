@@ -19,9 +19,7 @@ from backend.cosmos_dal import CosmosDAL
 from backend.utils import is_valid_email, group_sessions_by_date
 from backend.llm_service import LLMService
 from backend.blob_io import BlobIO
-# REMOVE: from backend.ai_search_service import AISearchService
-from backend.chroma_dal import ChromaDAL # <-- ADDED: New ChromaDB Data Access Layer
-from backend.rag_service import RAGService
+
 
 # ------------------------------------------------------------
 # App config
@@ -71,15 +69,6 @@ def get_services():
             st.stop()
         llm = LLMService(settings)
         blob = BlobIO(settings)
-        
-        # --- Dependency Injection Change: Replace AISearchService with ChromaDAL ---
-        #chroma_dal = ChromaDAL(settings) # <-- ADDED
-        # REMOVE: ai_search = AISearchService(settings)
-        
-        # MODIFIED: Pass chroma_dal instead of ai_search
-        #rag = RAGService(settings, blob, chroma_dal, llm) 
-        
-        # MODIFIED return tuple: removed ai_search_service
         return settings, cosmos, llm, blob
     except Exception as e:
         st.error(f"Service Initialization failed :{e}")
