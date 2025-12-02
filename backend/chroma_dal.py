@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 # Import for rate limit handling
 from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type 
 
+import chromadb
 from chromadb import Client, Collection
 from chromadb.config import Settings as ChromaSettings
 from configurations.config import Settings

@@ -4,4 +4,8 @@ azure-cosmos>=4.6
 azure-storage-blob>=12.21
 openai>=1.55
 pandas>=2.2
-chroma 
+chromadb==0.4.22
+numpy==1.26.4
+duckdb==0.9.2
+uvicorn
+fastapi

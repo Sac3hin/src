@@ -73,20 +73,20 @@ def get_services():
         blob = BlobIO(settings)
         
         # --- Dependency Injection Change: Replace AISearchService with ChromaDAL ---
-        chroma_dal = ChromaDAL(settings) # <-- ADDED
+        #chroma_dal = ChromaDAL(settings) # <-- ADDED
         # REMOVE: ai_search = AISearchService(settings)
         
         # MODIFIED: Pass chroma_dal instead of ai_search
-        rag = RAGService(settings, blob, chroma_dal, llm) 
+        #rag = RAGService(settings, blob, chroma_dal, llm) 
         
         # MODIFIED return tuple: removed ai_search_service
-        return settings, cosmos, llm, blob, chroma_dal, rag 
+        return settings, cosmos, llm, blob
     except Exception as e:
         st.error(f"Service Initialization failed :{e}")
         st.stop()
 
 # MODIFIED unpacking: ai_search_service is no longer returned
-settings, dal, llm_service, blob_io, chroma_dal_service, rag_service = get_services() 
+settings, dal, llm_service, blob_io = get_services() 
 
 # ------------------------------------------------------------
 # Shared UI
@@ -182,7 +182,7 @@ def file_upload_page():
     prefix = f"{settings.blob_folder}/{st.session_state['user']['username']}/"
     st.caption(f"Container: **{settings.storage_container_name}** | Prefix: **{prefix or '(root)'}**")
 
-    tabs = st.tabs(["📄 List Blobs", "⬆️ Upload Files", "🔎 Read / Preview", "🔄 Sync with ChromaDB"]) # MODIFIED TAB TITLE
+    tabs = st.tabs(["📄 List Blobs", "⬆️ Upload Files", "🔎 Read / Preview"]) # MODIFIED TAB TITLE
 
     # --- Tab 1: List Blobs ---
     with tabs[0]:
@@ -298,44 +298,44 @@ def file_upload_page():
 
     st.caption("Config is read from `.env`. For large files, consider chunked streaming if needed.")
     
-    # --- Tab 4: Sync with ChromaDB --- # MODIFIED
-    with tabs[3]:
+    # # --- Tab 4: Sync with ChromaDB --- # MODIFIED
+    # with tabs[3]:
 
-        st.subheader("🔄 Sync with ChromaDB (RAG)") # MODIFIED
+    #     st.subheader("🔄 Sync with ChromaDB (RAG)") # MODIFIED
 
-        # List ALL blobs in the container (not just per-user folder)
-        user_loc = st.session_state['user']['username']
-        try:
-            all_docs = blob_io.list_blobs_with_metadata(
-                username=user_loc,
-                recursive=recursive,
-                extension_filter=ext_filters
-            )
-        except Exception as e:
-            st.error(f"Failed to list container documents: {e}")
-            return
+    #     # List ALL blobs in the container (not just per-user folder)
+    #     user_loc = st.session_state['user']['username']
+    #     try:
+    #         all_docs = blob_io.list_blobs_with_metadata(
+    #             username=user_loc,
+    #             recursive=recursive,
+    #             extension_filter=ext_filters
+    #         )
+    #     except Exception as e:
+    #         st.error(f"Failed to list container documents: {e}")
+    #         return
 
-        # Filter to CSVs
-        csv_docs = [d for d in all_docs if str(d.get("name","")).lower().endswith(".csv")]
-        names = [d["name"] for d in csv_docs]
-        if not names:
-            st.info("No CSV files found in this container.")
-            return
+    #     # Filter to CSVs
+    #     csv_docs = [d for d in all_docs if str(d.get("name","")).lower().endswith(".csv")]
+    #     names = [d["name"] for d in csv_docs]
+    #     if not names:
+    #         st.info("No CSV files found in this container.")
+    #         return
 
-        selected = st.selectbox("Choose a CSV from the container", names)
-        rows_per_chunk = st.number_input("Rows per chunk", min_value=10, max_value=1000, value=100, step=10)
+    #     selected = st.selectbox("Choose a CSV from the container", names)
+    #     rows_per_chunk = st.number_input("Rows per chunk", min_value=10, max_value=1000, value=100, step=10)
 
-        # MODIFIED BUTTON TEXT
-        if st.button("Sync selected CSV to my ChromaDB", type="primary"): 
-            if not user:
-                st.error("Please sign in.")
-            else:
-                try:
-                    res = rag_service.ingest_csv_blob(user["username"], selected, rows_per_chunk=int(rows_per_chunk))
-                    # MODIFIED SUCCESS MESSAGE to reflect ChromaDB terminology
-                    st.success(f"Chunks uploaded: {res['chunks_uploaded']} to collection: {res['collection_name']}") 
-                except Exception as e:
-                    st.error(f"Sync failed: {e}")
+    #     # MODIFIED BUTTON TEXT
+    #     if st.button("Sync selected CSV to my ChromaDB", type="primary"): 
+    #         if not user:
+    #             st.error("Please sign in.")
+    #         else:
+    #             try:
+    #                 res = rag_service.ingest_csv_blob(user["username"], selected, rows_per_chunk=int(rows_per_chunk))
+    #                 # MODIFIED SUCCESS MESSAGE to reflect ChromaDB terminology
+    #                 st.success(f"Chunks uploaded: {res['chunks_uploaded']} to collection: {res['collection_name']}") 
+    #             except Exception as e:
+    #                 st.error(f"Sync failed: {e}")
 
 # --------------------- CHAT ---------------------
 def load_active_session():
@@ -383,7 +383,7 @@ def chat_page():
         answer = llm_service.answer_with_context(prompt,context)
 
         # --- RAG answer ---
-        answer = rag_service.answer_with_rag(username, prompt, top_k=5)
+        #answer = rag_service.answer_with_rag(username, prompt, top_k=5)
 
         # Append assistant message
         dal.append_message(username, st.session_state["active_session_id"], "assistant", answer)
