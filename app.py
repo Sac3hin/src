@@ -5,15 +5,16 @@ Childcare Insights - Frontend (Streamlit)
 Streamlit UI that delegates business logic to backend and config layers.
 """
 # --- Path bootstrap: ensure project root on sys.path ---
+from datetime import datetime
 import os, sys
 FRONTEND_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(FRONTEND_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import streamlit as st
 import pandas as pd
-from datetime import datetime
+import streamlit as st
+
 from configurations.config import load_settings
 from backend.cosmos_dal import CosmosDAL
 from backend.utils import is_valid_email, group_sessions_by_date
@@ -24,7 +25,11 @@ from backend.blob_io import BlobIO
 # ------------------------------------------------------------
 # App config
 # ------------------------------------------------------------
-st.set_page_config(page_title="Childcare Insights", page_icon="👶", layout="wide")
+st.set_page_config(
+    page_title="Jon",
+    page_icon="apple-only.png",  # <-- Replace "jon_icon.png" with the actual path/filename of your image
+    layout="wide"
+)
 
 def _hide_sidebar_when_unauthenticated():
     # Hide the entire sidebar and default navigation (if any)
@@ -41,13 +46,14 @@ def _hide_sidebar_when_unauthenticated():
 # Init session state
 # ------------------------------------------------------------
 def init_state():
+    # Streamlit preserves st.session_state keys across script reruns (including refresh)
     defaults = {
         "logged_in": False,
-        "user": None,
+        "user": None, # Will store the user dictionary (username, email, id)
         "signup_mode": False,
         "active_session_id": None,
         "chat_buffer": [],
-        "rows": [], # Added this to ensure it's always initialized
+        "rows": [], 
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -83,7 +89,16 @@ settings, dal, llm_service, blob_io = get_services()
 def header_bar():
     cols = st.columns([0.8, 0.2])
     with cols[0]:
-        st.markdown("### 👶 Childcare Insights")
+    # Using HTML/Markdown to display the image and the title
+        st.markdown(
+        f"""
+        <div style="display: flex; align-items: center;">
+            <img src="apple-only.png" style="width: 32px; height: 32px; margin-right: 10px;">
+            <h3>Jon</h3>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     with cols[1]:
         if st.session_state["logged_in"]:
             st.button("Logout", type="secondary", on_click=logout)
@@ -107,6 +122,7 @@ def login_page():
         if st.button("Login", type="primary", use_container_width=True):
             ok, result = dal.validate_login(username, password)
             if ok:
+                # Successfully logged in: set state to True and store user details
                 st.session_state["logged_in"] = True
                 st.session_state["user"] = {
                     "username": result["username"],
@@ -114,7 +130,7 @@ def login_page():
                     "id": result["id"],
                 }
                 st.success(f"Logged in as **{result['username']}**")
-                st.rerun()
+                st.rerun() # Rerun to switch to the main app page
             else:
                 st.error(result)
     with col2:
@@ -158,15 +174,15 @@ def signup_page():
 # ------------------------------------------------------------
 # Pages (functions) for navigation
 # ------------------------------------------------------------
-def file_upload_page():
-    # Sidebar content (only visible post-login)
-    user = st.session_state.get("user")
-    if st.session_state.get("user"):
-        st.sidebar.markdown(f"**Signed in as:** {st.session_state['user']['username']}")
-    st.sidebar.divider()
-    # MODIFIED CAPTION: AI Search -> ChromaDB
-    st.sidebar.caption("Blob → ChromaDB → GPT‑4o is now wired.")
 
+# Helper to change session ID and jump to Chat page
+def switch_session(session_id):
+    st.session_state["active_session_id"] = session_id
+    st.rerun()
+
+def file_upload_page():
+    # Sidebar content for this page is now handled in main()
+    
     st.header("📤 Upload Files to Azure Blob Storage")
     prefix = f"{settings.blob_folder}/{st.session_state['user']['username']}/"
     st.caption(f"Container: **{settings.storage_container_name}** | Prefix: **{prefix or '(root)'}**")
@@ -287,44 +303,7 @@ def file_upload_page():
 
     st.caption("Config is read from `.env`. For large files, consider chunked streaming if needed.")
     
-    # # --- Tab 4: Sync with ChromaDB --- # MODIFIED
-    # with tabs[3]:
 
-    #     st.subheader("🔄 Sync with ChromaDB (RAG)") # MODIFIED
-
-    #     # List ALL blobs in the container (not just per-user folder)
-    #     user_loc = st.session_state['user']['username']
-    #     try:
-    #         all_docs = blob_io.list_blobs_with_metadata(
-    #             username=user_loc,
-    #             recursive=recursive,
-    #             extension_filter=ext_filters
-    #         )
-    #     except Exception as e:
-    #         st.error(f"Failed to list container documents: {e}")
-    #         return
-
-    #     # Filter to CSVs
-    #     csv_docs = [d for d in all_docs if str(d.get("name","")).lower().endswith(".csv")]
-    #     names = [d["name"] for d in csv_docs]
-    #     if not names:
-    #         st.info("No CSV files found in this container.")
-    #         return
-
-    #     selected = st.selectbox("Choose a CSV from the container", names)
-    #     rows_per_chunk = st.number_input("Rows per chunk", min_value=10, max_value=1000, value=100, step=10)
-
-    #     # MODIFIED BUTTON TEXT
-    #     if st.button("Sync selected CSV to my ChromaDB", type="primary"): 
-    #         if not user:
-    #             st.error("Please sign in.")
-    #         else:
-    #             try:
-    #                 res = rag_service.ingest_csv_blob(user["username"], selected, rows_per_chunk=int(rows_per_chunk))
-    #                 # MODIFIED SUCCESS MESSAGE to reflect ChromaDB terminology
-    #                 st.success(f"Chunks uploaded: {res['chunks_uploaded']} to collection: {res['collection_name']}") 
-    #             except Exception as e:
-    #                 st.error(f"Sync failed: {e}")
 
 # --------------------- CHAT ---------------------
 def load_active_session():
@@ -337,110 +316,160 @@ def load_active_session():
     st.session_state["chat_buffer"] = session.get("messages", []) if session else []
 
 def chat_page():
-    if st.session_state.get("user"):
-        st.sidebar.markdown(f"**Signed in as:** {st.session_state['user']['username']}")
-    st.sidebar.divider()
-    # MODIFIED CAPTION: AI Search -> ChromaDB
-    st.sidebar.caption("Blob → ChromaDB → GPT4o is now wired.")
+    # Header
+    user_name = st.session_state['user']['username']
+    st.markdown(f"##### **Hi {user_name}, I'm Jon your AI assistant. Ask me anything about childcare centers.** 👋")
+    st.divider()
 
-    # MODIFIED HEADER
-    st.header("💬 Chat (RAG on ChromaDB + GPT4o)") 
+    # Load active session if exists
     load_active_session()
 
+    # 1. Show previous messages
     for msg in st.session_state["chat_buffer"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["text"])
             st.caption(msg["ts"])
 
-    prompt = st.chat_input("Ask about childcare centers, availability, fees, etc.")
-    if prompt:
-        username = st.session_state["user"]["username"]
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 2. Chat input
+    prompt = st.chat_input("Type your message...")
+    if not prompt:
+        return
 
-        if not st.session_state["active_session_id"]:
-            # First question becomes title/filename
-            session = dal.create_chat_session(username, prompt)
-            st.session_state["active_session_id"] = session["id"]
-            st.session_state["chat_buffer"] = session["messages"]
-            st.rerun()
-            return
+    username = st.session_state["user"]["username"]
 
-        # Append user's message
-        dal.append_message(username, st.session_state["active_session_id"], "user", prompt)
-        context = "you are helpful ai assistant"
-        # Get answer from GPT‑4o with context (stub)
-        answer = llm_service.answer_with_context(prompt,context)
+    # ----------------------------
+    # CASE A — No session exists
+    # ----------------------------
+    if not st.session_state["active_session_id"]:
+        # Step 1 → Send user’s input to LLM immediately
+        context = "You are Jon, an AI assistant helping users with childcare center information."
+        assistant_reply = llm_service.answer_with_context(prompt, context)
 
-        # --- RAG answer ---
-        #answer = rag_service.answer_with_rag(username, prompt, top_k=5)
+        # Step 2 → Create a new session based on user's first message
+        session = dal.create_chat_session(username, prompt)
+        st.session_state["active_session_id"] = session["id"]
 
-        # Append assistant message
-        dal.append_message(username, st.session_state["active_session_id"], "assistant", answer)
+        # Step 3 → Save user + assistant messages
+        dal.append_message(username, session["id"], "user", prompt)
+        dal.append_message(username, session["id"], "assistant", assistant_reply)
 
-        # Refresh UI
+        # Step 4 → Reload + rerun UI
         load_active_session()
         st.rerun()
+        return
 
-def history_page():
-    if st.session_state.get("user"):
-        st.sidebar.markdown(f"**Signed in as:** {st.session_state['user']['username']}")
-    st.sidebar.divider()
-    # MODIFIED CAPTION: AI Search -> ChromaDB
-    st.sidebar.caption("Blob → ChromaDB → GPT‑4o is now wired.")
+    # ----------------------------
+    # CASE B — Existing session
+    # ----------------------------
+    session_id = st.session_state["active_session_id"]
 
-    st.header("🗂️ History")
-    username = st.session_state["user"]["username"]
-    sessions = dal.list_chat_sessions(username)
-    groups = group_sessions_by_date(sessions)
+    # Save user message
+    dal.append_message(username, session_id, "user", prompt)
 
-    def render_group(title, items):
-        st.subheader(title)
-        if not items:
-            st.caption("No items")
-            return
-        for s in items:
-            ts = s.get("updated_at", s.get("created_at"))
-            label = f"{ts} · '{s.get('title', 'untitled_chat')}'"
-            if st.button(label, key=f"open_{s['id']}"):
-                st.session_state["active_session_id"] = s["id"]
-                # Stay on History; user can click Chat in the navigation,
-                # or you can also jump programmatically if you use file pages.
-                st.rerun()
+    # LLM answer
+    context = "You are Jon, an AI assistant helping users with childcare center information."
+    assistant_reply = llm_service.answer_with_context(prompt, context)
 
-    render_group("Today",       groups["Today"])
-    render_group("Yesterday",   groups["Yesterday"])
-    render_group("Past 7 Days", groups["Past 7 Days"])
-    render_group("Older",       groups["Older"])
+    # Save assistant reply
+    dal.append_message(username, session_id, "assistant", assistant_reply)
+
+    # Refresh UI
+    load_active_session()
+    st.rerun()
+
+
 # ------------------------------------------------------------
 # Entry point: frame + conditional navigation
 # ------------------------------------------------------------
 def main():
     header_bar()
-
+ 
     # --- Auth gate ---
     if not st.session_state["logged_in"]:
         # Hide any sidebar while on login/signup
         _hide_sidebar_when_unauthenticated()
-
+ 
         if st.session_state["signup_mode"]:
             signup_page()
         else:
             login_page()
         return
-
+ 
     # --- Logged in: show sidebar + navigation ---
+   
+    # 2. Custom Sidebar Content
+   
+       
+        # Navigation Pages
     pages = [
-        st.Page(file_upload_page, title="File Upload", icon="📤"),
-        st.Page(chat_page,          title="Chat",          icon="💬", default=True),  # Default page after login
-        st.Page(history_page,       title="History",       icon="🗂️"),
+            st.Page(chat_page, title="Chat", icon="💬", default=True),
+            st.Page(file_upload_page, title="File Upload", icon="📤"),
     ]
-
-    # Navigation appears in the sidebar; returns the selected page object
+ 
+        # Use st.navigation to create the primary navigation items (Chat, File Upload)
+        # Note: 'History' is removed from pages list
     pg = st.navigation(pages, position="sidebar", expanded=True)
-
+       
+    st.divider()
+ 
+    with st.sidebar:
+       
+        # 3. Previous Chats Section
+        st.subheader("Previous Chats")
+        username = st.session_state["user"]["username"]
+        # Fetch up to the last 10 sessions, ordered by most recent update
+        sessions = dal.list_chat_sessions(username)
+       
+        if not sessions:
+            st.caption("No previous conversations.")
+        else:
+            for s in sessions:
+                # Truncate title for display
+                title = s.get('title', 'Untitled Chat')
+                display_title = title[:30] + '...' if len(title) > 30 else title
+               
+                # Check if this is the active session to style the button
+                is_active = st.session_state["active_session_id"] == s["id"]
+               
+                # Use a unique key for each button
+                key = f"prev_chat_{s['id']}"
+ 
+                # Use HTML/CSS to mimic the button style from the image (selected button has colored background)
+                style = ""
+                if is_active:
+                    # Apply custom styling for the active session button
+                    style = """
+                        <style>
+                        .stButton > button[key="{}"] {{
+                            background-color: #e6f7ff; /* Light blue/gray background */
+                            border-color: #1890ff; /* Blue border */
+                            color: #1890ff; /* Blue text */
+                            font-weight: bold;
+                        }}
+                        </style>
+                    """.format(key)
+                    st.markdown(style, unsafe_allow_html=True)
+               
+                # Use the unique key for the button
+                if st.button(display_title, key=key, use_container_width=True):
+                    # On click, set the active session ID and jump to the Chat page
+                    switch_session(s["id"])
+ 
+        st.divider()
+       
+        # Move the "Signed in as" message to the bottom
+        st.markdown(
+            f"""
+            <div style="position: fixed; bottom: 0; left: 0; padding: 10px 15px; background-color: white; width: 100%; box-sizing: border-box; border-top: 1px solid #f0f0f0;">
+                <p style="margin: 0; font-size: small;">Signed in as: <b>{st.session_state['user']['username']}</b></p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+ 
     # Execute the selected page
     pg.run()
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
